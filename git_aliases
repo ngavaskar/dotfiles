@@ -1,0 +1,358 @@
+#Git aliases
+alias ga='git add'
+alias gau='git add -u'
+#alias gb='git branch -vv --sort=committerdate'
+alias gb="git branch -vv --sort=committerdate | tac |awk '/^/{print NR\$0}' | tac"
+alias gbl="git branch -vv --sort=committerdate | wc -l"
+#--color=always| awk '{printf "%d %s\n", NR, $0}''
+alias gbn2='echo "Current branch: `git rev-parse --abbrev-ref HEAD`"'
+alias gbd='git branch -d'  # delete merged branch
+alias gbdmf='git push myFork :`git rev-parse --abbrev-ref HEAD`'   # Delete merged branch from remote myFork
+#alias gbD='git branch -D'  # Delete unmerged branch - force delete
+alias gco='git checkout'
+alias gca='git commit --amend'
+#alias gco='git checkout --ours'
+#alias gct='git checkout --theirs'
+#alias gcob='git checkout -b'
+alias gcm='git commit -m'
+alias gcp='git cherry-pick'
+alias gd='git diff'
+alias gdc='git diff --cached'
+alias gl='git notes show; git log --graph --abbrev-commit --decorate --format=format:"%C(bold blue)%h%C(reset) - %C(cyan)%aD%C(reset) %C(green)(%ar)%C(reset)%C(yellow)%d %C(reset)%n%C(white)%s%C(reset) %C(dim white)- %an%C(reset)%n"'
+alias gna='git notes add -m'
+alias gns='git notes show'
+alias gpr='git pull --rebase'
+alias grhm='git reset HEAD~'
+alias grhs='git reset --soft HEAD~'
+alias grv='gbn2;git remote -v'
+#alias gsl='git stash list'
+#alias ss='git stash save'
+#alias gss='git submodule sync'
+#alias gsu='git submodule update'
+alias gu='git reset HEAD --'  # To unstage a file
+alias gee="git config --global core.editor "emacs""
+alias gev="git config --global core.editor "vim""
+alias grh1='git reset --hard HEAD^'
+alias grh2='git reset --hard HEAD^^'
+alias gsuu='gs| grep --color=always UU'
+
+# git push myfork
+gpmf()
+{
+ myFork=`git remote get-url myFork`
+ if [[ $myFork = *"ngavaska"* ]]; then
+   echo "Myfork: "`git remote get-url myFork`
+   branch=`git rev-parse --abbrev-ref HEAD`
+   echo "Pushing to myFork:$branch"
+   git push -u myFork $branch
+ else
+   echo "Invalid myFork url: $myFork"
+fi
+}
+
+sbn()
+{
+  if [ "$#" -ne 1 ];then
+     exit
+  fi
+  currBranch=`git rev-parse --abbrev-ref HEAD`
+  git config branch.$currBranch.note $1
+}
+
+gbn()
+{
+  currBranch=`git rev-parse --abbrev-ref HEAD`
+  #echo "Current branch: $currBranch"
+  echo "Base branch: `git config branch.$currBranch.note`"
+  gabn
+  if [ -f .gitmodules ];then
+    edited=`grep github .gitmodules | grep -v "Documentation\|VCA\|infra\|CNA" | wc -l`
+    editedByMe=`grep ngavaska .gitmodules | wc -l`
+    if [ $edited -eq $editedByMe ];then
+        if [ $editedByMe -ge 1 ];then
+            echo -e "\nModified submodules in .gitmodules"
+            grep -A 1 -B 1 ngavaska .gitmodules
+        fi
+    else
+        echo -e "\nModified submodules in .gitmodules"
+        echo "Some branches not edited by me. Check .gitmodules"
+        grep github .gitmodules | grep -v "Documentation\|VCA\|infra\|CNA"
+    fi
+  fi
+}
+
+gcob()
+{
+ if [ "$#" -ne 2 ];then
+    exit
+ fi
+
+  git checkout -b $@
+  if [ $? == 0 ]; then
+      git config branch.$1.note $2
+  fi
+}
+
+gabn()
+{
+  echo "Current branches: "
+  cwd=`pwd`
+  baseDir=`basename $cwd`
+  echo "$baseDir> `git rev-parse --abbrev-ref HEAD`"
+  if [ -f .gitmodules ]; then
+    for SUBMODULE in `grep submodule .gitmodules | cut -d" " -f2 | cut -d'"' -f2`
+    do
+      if [ -d $SUBMODULE ];then
+        pushd $SUBMODULE > /dev/null
+        module=`git rev-parse --abbrev-ref HEAD| grep -v HEAD`
+        if [ $? == 0 ];then
+            echo "$SUBMODULE> $module"
+        fi
+        popd > /dev/null
+      fi
+    done
+  fi
+}
+
+gpu()
+{
+ if [ "$#" -ne 1 ];then
+    exit
+ fi
+
+ upstream=`git remote get-url upstream`
+ if [[ $upstream = *":VCA"* ]]; then
+   echo "upstream: "`git remote get-url upstream`
+   branch=$1
+   echo "Pulling from upstream/$1"
+   git pull upstream $branch
+ else
+   echo "Invalid upstream url: $upstream"
+fi
+}
+
+#git fetch upstream
+gfmf(){
+  myFork=`git remote get-url myFork`
+  if [[ $myFork = *"ngavaska"* ]]; then
+    echo "Myfork: "`git remote get-url myFork`
+    git fetch myFork
+  else
+    echo "Invalid myFork url: $myFork"
+  fi
+}
+
+gfu(){
+  echo $1
+  echo $VCA_WORKSPACE
+  if [[ ("$#" -eq 1) && ($1 == "timos") ]];then
+    timos
+    MAIN_REPO="SROS/TiMOS"
+  else
+    gw
+    vca
+    MAIN_REPO="VCA/VCA"
+  fi
+
+  upstream=`git remote get-url upstream`
+  echo "Upstream $upstream"
+  if [[ ($upstream = *$MAIN_REPO*) || ($upstream = *$MAIN_REPO*) ]]; then
+    git fetch upstream
+  else
+    echo "Bad upstream for $MAIN_REPO"
+  fi
+
+  # Fetch code for all the submodules.
+  for SUBMODULE in `grep submodule .gitmodules | cut -d" " -f2 | cut -d'"' -f2`
+  do
+    if [ -d $SUBMODULE ];then
+      pushd $SUBMODULE
+        pwd
+        upstream=`git remote get-url upstream`
+        if [[ ($upstream = *"VCA/ovs"*) || $upstream = *"CNA/protorepo"* || $upstream = *"Documentation/alarm-specifications.git"* ]]; then
+          git fetch upstream
+        else
+          echo "Bad upstream for $SUBMODULE"
+        fi
+      popd
+    fi
+  done
+}
+
+#set myfork
+setmf(){
+  if [ $1 == "vca" ];then
+     git remote remove myFork > /dev/null
+     git remote add myFork git@github.mv.usa.alcatel.com:ngavaska/VCA.git
+  elif [ $1 == "ovs" ]; then
+     git remote remove myFork > /dev/null
+     git remote add myFork git@github.mv.usa.alcatel.com:ngavaska/ovs.git
+  elif [ $1 == "protorepo" ]; then
+     git remote remove myFork > /dev/null
+     git remote add myFork git@github.mv.usa.alcatel.com:ngavaska/protorepo.git
+  fi
+}
+
+# get add remote
+gar(){
+  if [ "$#" -lt 2 ];then
+    echo "Usage: 'gar ngavaska VCA'  => git remote add ngavaska git@github.mv.usa.alcatel.com:ngavaska/VCA.git"
+    echo "Usage: 'gar upstream VCA ovs' => git remote add upstream git@github.mv.usa.alcatel.com:VCA/ovs.git"
+    echo "Usage: 'gar myFork ngavaska VCA'  => git remote add myFork git@github.mv.usa.alcatel.com:ngavaska/VCA.git"
+    echo "Usage: 'gar myFork ngavaska ovs'  => git remote add myFork git@github.mv.usa.alcatel.com:ngavaska/ovs.git"
+    echo "Usage: 'gar myFork ngavaska protorepo'  => git remote add myFork git@github.mv.usa.alcatel.com:ngavaska/protorepo.git"
+    return
+  fi
+  echo "remote: $1, user: $2"
+
+  if [ $# == 3 ]; then
+    nickname=$1
+    remote=$
+  else
+    nickname=$2
+  fi
+
+  git remote add $nickname git@github.mv.usa.alcatel.com:$1/$1.git
+}
+
+# git remote remove
+grr(){
+  git remote remove $1
+}
+
+
+gsi()
+{
+ git submodule init
+}
+
+gss()
+{
+git submodule sync
+}
+
+remote_remove()
+{
+ git remote remove upstream
+ git remote remove myFork
+ git remote remove rohit
+}
+
+remote_add()
+{
+ git remote add upstream git@github.mv.usa.alcatel.com:VCA/ovs.git
+ git remote add myFork git@github.mv.usa.alcatel.com:ngavaska/ovs.git
+ git remote add rohit git@github.mv.usa.alcatel.com:rpagedar/ovs.git
+}
+
+gsu()
+{
+git submodule update
+# For ovs-2.3
+#pushd ovs
+#remote_remove
+#remote_add
+#popd
+
+# For ovs-2.5
+pushd $VCA_WS/ovs-2.5
+remote_remove
+remote_add
+popd
+}
+gssu()
+{
+ gss
+ gsu
+}
+
+gssiu()
+{
+ gss
+ gsi
+ gsu
+}
+
+
+gbD()
+{
+git branch -D $1
+git push myFork :$1
+}
+
+gbpurge(){
+  totalBranches=`gb | wc -l`
+  if [[ $totalBranches -ge 35 ]]; then
+    echo "Total branches: $totalBranches. purging oldest 10 branches"
+    for branch in `git branch -vv --sort=committerdate | head | cut -d" " -f3`
+    do
+      git branch -D $branch
+      git push myFork :$branch
+    done
+  fi
+}
+gssh()
+{
+  git stash show stash@{$1}
+}
+
+#Stash
+gsd()
+{
+  git stash drop stash@{$1}
+}
+
+gsa()
+{
+  git stash apply stash@{$1}
+}
+
+gpmff()
+{
+branch=`git rev-parse --abbrev-ref HEAD`
+echo "Force Pushing to myFork:$branch"
+git push -f myFork $branch
+}
+#alias gpobf='git push -f myFork `git rev-parse --abbrev-ref HEAD`'
+alias gra='git rebase --abort'
+alias grc='git rebase --continue'
+alias gs='git notes show;git status -sb'
+#alias gsh='git show'
+alias gsh1='git show `git rev-parse --short HEAD~1`'
+alias gsh2='git show `git rev-parse --short HEAD~2`'
+alias gsh3='git show `git rev-parse --short HEAD~3`'
+alias gsh4='git show `git rev-parse --short HEAD~4`'
+alias gshf='git show --name-only'
+gsh(){
+if [ "$#" -eq 1 ];then
+  git show `git rev-parse --short HEAD~$1`
+else
+  git show
+fi
+
+}
+
+gcb(){
+    git checkout -b $@
+    echo "git checkout -b $@"
+    base=`echo $2`
+    echo "Base $base"
+    gna "Base branch: $base"
+    gssiu
+}
+
+gbaw(){
+   echo "Listing the recent 3 branches in all workspaces:"
+   for ws in 1 2 3 4
+   do
+     val=`sw $ws;gb | tail -3`
+     echo -e "\n$val";
+   done
+}
+gbc(){
+    if [ $# != 1 ]; then
+      gc -
+    else
+      git checkout `git branch --sort=committerdate | tail -"$1" | head -1`
+    fi
+}
